@@ -240,47 +240,38 @@ return {
     },
   },
 
+  -- rust-tools.nvim (v2.0) was archived 2024-01 and calls the deprecated
+  -- require("lspconfig") framework, removed in nvim-lspconfig v3.0.0.
+  -- rustaceanvim is its maintained successor; it configures rust_analyzer
+  -- itself, so rust_analyzer must NOT also be listed in configs/lspconfig.lua.
   {
-    "simrat39/inlay-hints.nvim",
-    lazy = false,
-    opts = {
-      only_current_line = true,
-
-      eol = {
-        right_align = true,
-      },
-    },
-  },
-
-  {
-    -- upstream archived 2024-01; mrcjkb/rustaceanvim is the maintained successor
-    "simrat39/rust-tools.nvim",
-    lazy = false,
-    dependencies = { "simrat39/inlay-hints.nvim" },
-    config = function()
-      local ih = require "inlay-hints"
-      require("rust-tools").setup {
+    "mrcjkb/rustaceanvim",
+    version = "^9",
+    lazy = false, -- this plugin is already lazy-loaded on the rust filetype
+    init = function()
+      vim.g.rustaceanvim = {
         tools = {
-          on_initialized = function()
-            ih.set_all()
-          end,
-          autosethints = true,
-          inlay_hints = {
-            auto = true,
-            show_parameter_hints = true,
-          },
           hover_actions = {
             auto_focus = true,
           },
         },
         server = {
-          on_attach = function(c, b)
-            ih.on_attach(c, b)
+          on_attach = function(_, bufnr)
+            -- replaces simrat39/inlay-hints.nvim: Neovim >= 0.10 does this natively
+            vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
           end,
         },
       }
     end,
   },
+
+  -- superseded by vim.lsp.inlay_hint (native since Neovim 0.10); the
+  -- rust-tools.nvim spec above was its only consumer in v2.0.
+  -- {
+  --   "simrat39/inlay-hints.nvim",
+  --   lazy = false,
+  --   opts = { only_current_line = true, eol = { right_align = true } },
+  -- },
 
   {
     "saecki/crates.nvim",
