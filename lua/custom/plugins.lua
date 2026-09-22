@@ -17,6 +17,11 @@ return {
         end,
     },
     {"poljar/typos.nvim", lazy=false,
+        -- needs the typos-cli binary (cargo install typos-cli); without it the
+        -- plugin throws "Error running typos: ENOENT" on every BufEnter
+        cond = function()
+            return vim.fn.executable "typos" == 1
+        end,
         config = function()
             require("typos").setup()
         end,
@@ -63,7 +68,6 @@ return {
     {"rhysd/vim-clang-format", lazy = false},
     {"Exafunction/codeium.vim", lazy = false},
     {'danilamihailov/beacon.nvim', lazy = false},
-    {'neoclide/coc.nvim', lazy = false},
     {'williamboman/warden.nvim', lazy = false, line_highlight = true},
     {'tamton-aquib/duck.nvim',
         lazy = false,
@@ -74,11 +78,23 @@ return {
     },
     {'p00f/clangd_extensions.nvim', lazy = false,
         commit = "798e377ec859087132b81d2f347b5080580bd6b1",
+        -- nvim-lspconfig must be on the rtp before we register clangd, otherwise
+        -- vim.lsp.config can't pick up cmd from its lsp/clangd.lua
+        dependencies = { "neovim/nvim-lspconfig" },
         config = function()
-            require("clangd_extensions").setup {
+            -- This pinned commit's setup() pushes the server opts through the
+            -- deprecated require("lspconfig").clangd.setup() path. prepare()
+            -- runs the exact same setup but hands the opts back to us instead,
+            -- so we register clangd with the native vim.lsp.config API below.
+            local clangd_opts = require("clangd_extensions").prepare {
                 server = {
-                    -- options to pass to nvim-lspconfig
-                    -- i.e. the arguments to require("lspconfig").clangd.setup({})
+                    -- options for the clangd server itself; prepare() chains
+                    -- this on_attach ahead of its own inlay-hint one.
+                    -- required lazily: at startup nvim-lspconfig may not be loaded yet
+                    on_attach = function(client, bufnr)
+                        require("plugins.configs.lspconfig").on_attach(client, bufnr)
+                    end,
+                    -- capabilities come from vim.lsp.config("*")
                 },
                 extensions = {
                     -- defaults:
@@ -163,6 +179,9 @@ return {
                     },
                 },
             }
+
+            vim.lsp.config("clangd", clangd_opts)
+            vim.lsp.enable "clangd"
         end,
     },
     {'simrat39/inlay-hints.nvim', lazy = false,
@@ -214,29 +233,47 @@ return {
         }
         end
     },
-    {'simrat39/rust-tools.nvim', lazy = false,
-        config = function()
-            local ih = require("inlay-hints")
-            require("rust-tools").setup({
+    -- replaces the archived simrat39/rust-tools.nvim, which drove rust_analyzer
+    -- through the deprecated require("lspconfig") framework.
+    -- Commands moved: :RustHoverActions -> :RustLsp hover actions,
+    -- :RustRunnables -> :RustLsp runnables, :RustDebuggables -> :RustLsp debuggables
+    {'mrcjkb/rustaceanvim',
+        version = '^9',
+        lazy = false, -- this plugin configures itself, it must not be lazy-loaded
+        init = function()
+            -- rustaceanvim is configured through vim.g.rustaceanvim, not setup()
+            vim.g.rustaceanvim = {
                 tools = {
-                    on_initialized = function()
-                        ih.set_all()
-                    end,
-                    autosethints = true,
-                    inlay_hints = {
-                        auto = true,
-                        show_parameter_hints = true,
-                    },
                     hover_actions = {
-                        auto_focus = true
+                        auto_focus = true,
                     },
                 },
                 server = {
-                    on_attach = function(c, b)
-                        ih.on_attach(c, b)
+                    on_attach = function(client, bufnr)
+                        -- NvChad's shared on_attach: LSP keymaps + signature help.
+                        -- required here, not in init(), so nvim-lspconfig is loaded first
+                        require("plugins.configs.lspconfig").on_attach(client, bufnr)
+
+                        -- null-ls has no rust formatter, so let rust_analyzer keep
+                        -- the formatting NvChad's on_attach turns off
+                        client.server_capabilities.documentFormattingProvider = true
+                        client.server_capabilities.documentRangeFormattingProvider = true
+
+                        -- native inlay hints (nvim 0.11+) replace inlay-hints.nvim
+                        if client:supports_method "textDocument/inlayHint" then
+                            vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
+                        end
                     end,
+                    -- rustaceanvim builds its own rust-specific capabilities
+                    default_settings = {
+                        ["rust-analyzer"] = {
+                            inlayHints = {
+                                parameterHints = { enable = true },
+                            },
+                        },
+                    },
                 },
-            })
+            }
         end,
     },
     {'mfussenegger/nvim-dap', lazy = false},

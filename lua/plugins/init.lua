@@ -73,6 +73,9 @@ local default_plugins = {
 
   {
     "nvim-treesitter/nvim-treesitter",
+    -- the default branch is now the "main" rewrite, which removed the
+    -- nvim-treesitter.configs module this NvChad version configures below
+    branch = "master",
     init = function()
       require("core.utils").lazy_load "nvim-treesitter"
     end,
