@@ -1,17 +1,16 @@
-local on_attach = require("plugins.configs.lspconfig").on_attach
-local capabilities = require("plugins.configs.lspconfig").capabilities
+-- NOTE: this file is not wired up anywhere yet. To use it, add
+--   require "custom.configs.lspconfig"
+-- to lua/custom/init.lua (or an lspconfig plugin override in custom/plugins.lua).
 
-local lspconfig = require "lspconfig"
+-- registers the shared on_attach / capabilities via vim.lsp.config("*", ...)
+require "plugins.configs.lspconfig"
 
--- if you just want default config for the servers then put them in a table
-local servers = { "html", "cssls", "tsserver", "clangd" }
+-- servers that just need the defaults from nvim-lspconfig's lsp/ dir
+-- (tsserver was renamed ts_ls upstream)
+local servers = { "html", "cssls", "ts_ls", "clangd" }
 
-for _, lsp in ipairs(servers) do
-  lspconfig[lsp].setup {
-    on_attach = on_attach,
-    capabilities = capabilities,
-  }
-end
+vim.lsp.enable(servers)
 
--- 
--- lspconfig.pyright.setup { blabla}
+-- per-server tweaks look like:
+-- vim.lsp.config("pyright", { settings = { ... } })
+-- vim.lsp.enable "pyright"
