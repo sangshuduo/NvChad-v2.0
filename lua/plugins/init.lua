@@ -153,9 +153,6 @@ return {
   { "wellle/context.vim", lazy = false },
   { "rhysd/vim-clang-format", lazy = false },
 
-  -- was Exafunction/codeium.vim, repo renamed to windsurf.vim
-  { "Exafunction/windsurf.vim", lazy = false },
-
   { "danilamihailov/beacon.nvim", lazy = false },
 
   -- coc.nvim is a complete LSP + completion engine of its own and fights
